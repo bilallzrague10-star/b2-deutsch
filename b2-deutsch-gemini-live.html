@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>🗣️ B2 Deutsch – Gespräch mit KI</title>
+<style>
+  :root{
+    --bg: #10151c;
+    --bg-panel: #161d27;
+    --bg-panel-2: #1c2530;
+    --ink: #eef2f6;
+    --ink-dim: #93a1b0;
+    --line: #2a3441;
+    --amber: #e0a458;
+    --amber-dim: #7a5a30;
+    --student: #5fb0a8;
+    --gemini: #c98a5e;
+    --red: #d8654f;
+    --green: #6faa6a;
+    --yellow: #d8b354;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1a2330 0%, var(--bg) 60%);
+    color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    min-height:100%;
+  }
+  .wrap{
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 20px 16px 32px;
+  }
+  header{
+    text-align:center;
+    padding: 18px 10px 22px;
+  }
+  header h1{
+    font-size: 1.5rem;
+    line-height:1.3;
+    margin: 0 0 8px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header .topic{
+    font-size: 0.98rem;
+    color: var(--amber);
+    font-style: italic;
+    margin: 0 0 10px;
+  }
+  header .desc{
+    font-size: 0.86rem;
+    color: var(--ink-dim);
+    line-height: 1.55;
+    max-width: 46ch;
+    margin: 0 auto;
+  }
+
+  .card{
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .status-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .status-item{
+    display:flex; align-items:center; gap:8px;
+    font-size: 0.82rem;
+    color: var(--ink-dim);
+  }
+  .dot{
+    width:10px; height:10px; border-radius:50%;
+    background: var(--ink-dim);
+    flex-shrink:0;
+    transition: background .2s, box-shadow .2s;
+  }
+  .dot.gray{ background:#5a6472; }
+  .dot.yellow{ background: var(--yellow); box-shadow:0 0 8px var(--yellow); animation: pulse 1s infinite; }
+  .dot.green{ background: var(--green); box-shadow:0 0 8px var(--green); }
+  .dot.red{ background: var(--red); box-shadow:0 0 8px var(--red); }
+
+  .mic-dot{
+    width:12px; height:12px; border-radius:50%;
+    background:#3a4552;
+    flex-shrink:0;
+    transition: transform .06s ease-out, background .1s;
+  }
+  .mic-dot.live{ background: var(--student); }
+
+  .timer{
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    color: var(--ink);
+    background: var(--bg-panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 4px 10px;
+  }
+
+  @keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.45; }
+  }
+
+  .controls{
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  button{
+    font-family: inherit;
+    border: none;
+    border-radius: 14px;
+    padding: 16px 18px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .05s ease, opacity .15s;
+  }
+  button:active{ transform: scale(0.98); }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+
+  #startBtn{
+    background: linear-gradient(180deg, var(--amber), #b9822f);
+    color: #211405;
+  }
+  #stopBtn{
+    background: var(--bg-panel-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+
+  .error-box{
+    display:none;
+    background: #2a1712;
+    border: 1px solid #4a2418;
+    color: #f0b7a4;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    margin-top: 10px;
+    line-height:1.5;
+  }
+
+  .transcript-title{
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    margin: 0 0 10px;
+  }
+  .transcript-empty{
+    color: var(--ink-dim);
+    font-size: 0.86rem;
+    font-style: italic;
+    padding: 6px 2px;
+  }
+
+  .transcript-scroll{
+    max-height: 46vh;
+    overflow-y: auto;
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+    padding-right: 2px;
+  }
+
+  .bubble{
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    max-width: 92%;
+  }
+  .bubble.student{
+    align-self: flex-end;
+    background: rgba(95, 176, 168, 0.14);
+    border: 1px solid rgba(95, 176, 168, 0.35);
+  }
+  .bubble.gemini{
+    align-self: flex-start;
+    background: rgba(201, 138, 94, 0.14);
+    border: 1px solid rgba(201, 138, 94, 0.35);
+  }
+  .bubble .who{
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+  .bubble.student .who{ color: var(--student); }
+  .bubble.gemini .who{ color: var(--gemini); }
+
+  .split{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .split h3{
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 8px;
+  }
+  .split .col{
+    background: var(--bg-panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+    min-height: 60px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    max-height: 30vh;
+    overflow-y:auto;
+  }
+  .split .col.student-col h3{ color: var(--student); }
+  .split .col.gemini-col h3{ color: var(--gemini); }
+  .split p{ margin: 0 0 8px; color: var(--ink); }
+  .split p:last-child{ margin-bottom:0; }
+
+  footer{
+    text-align:center;
+    color: var(--ink-dim);
+    font-size: 0.72rem;
+    margin-top: 18px;
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>🗣️ B2 Deutsch – Gespräch mit KI</h1>
+    <p class="topic">„Sollten Jugendliche neben der Schule arbeiten?“</p>
+    <p class="desc">Sprich auf Deutsch mit deinem Mikrofon. Die KI hört dir zu, antwortet mit Stimme und stellt natürliche Rückfragen – ein freies B2-Gesprächstraining.</p>
+  </header>
+
+  <div class="card">
+    <div class="status-row">
+      <div class="status-item">
+        <span id="statusDot" class="dot gray"></span>
+        <span id="statusText">Nicht verbunden</span>
+      </div>
+      <div class="status-item">
+        <span id="micDot" class="mic-dot"></span>
+        <span id="micText">Mikrofon aus</span>
+      </div>
+      <div class="timer" id="timer">00:00</div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn">🎤 Gespräch starten</button>
+      <button id="stopBtn" disabled>⏹ Gespräch beenden</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div class="card">
+    <p class="transcript-title">Transcript</p>
+    <div class="transcript-scroll" id="transcriptScroll">
+      <div class="transcript-empty" id="transcriptEmpty">Das Gespräch erscheint hier, sobald du startest…</div>
+    </div>
+
+    <div class="split">
+      <div class="col student-col">
+        <h3>Du</h3>
+        <div id="studentCol"></div>
+      </div>
+      <div class="col gemini-col">
+        <h3>Gemini</h3>
+        <div id="geminiCol"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Persönlicher Test · Gemini Live API · gemini-3.8-live
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   KONFIGURATION — HIER API KEY EINSETZEN
+   ============================================================ */
+const GEMINI_API_KEY = "AQ.Ab8RN6K53AZVOQp1DzPFfKPIiEKXp0RjI4EKOXpolD0RL2AzlQ";
+const MODEL_NAME = "gemini-3.8-live";
+const WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`;
+
+const SYSTEM_INSTRUCTION = `Du bist ein deutscher Gesprächspartner für einen B2-Lernenden.
+Führe ein natürliches Gespräch auf Deutsch.
+Stelle passende Rückfragen.
+Lass den Lernenden ausreden.
+Sprich nicht unnötig lange.
+Korrigiere Fehler nicht während des Gesprächs.
+Reagiere natürlich auf die Antworten des Lernenden.
+Verwende ungefähr das Sprachniveau B2.
+Das Gesprächsthema ist: "Sollten Jugendliche neben der Schule arbeiten?"
+Beginne das Gespräch mit genau diesem Satz (oder einer sehr ähnlichen Variante):
+"Hallo! Heute sprechen wir über die Frage: Sollten Jugendliche neben der Schule arbeiten? Was denkst du darüber?"`;
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const micDot = document.getElementById('micDot');
+const micText = document.getElementById('micText');
+const timerEl = document.getElementById('timer');
+const errorBox = document.getElementById('errorBox');
+const transcriptScroll = document.getElementById('transcriptScroll');
+const transcriptEmpty = document.getElementById('transcriptEmpty');
+const studentCol = document.getElementById('studentCol');
+const geminiCol = document.getElementById('geminiCol');
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let ws = null;
+let micStream = null;
+let inputAudioCtx = null;
+let processorNode = null;
+let sourceNode = null;
+
+let outputAudioCtx = null;
+let playHeadTime = 0;
+
+let timerInterval = null;
+let secondsElapsed = 0;
+
+let currentUserLine = "";
+let currentGeminiLine = "";
+
+const INPUT_SAMPLE_RATE = 16000;
+const OUTPUT_SAMPLE_RATE = 24000;
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+function setStatus(state, label){
+  statusDot.className = 'dot ' + state;
+  statusText.textContent = label;
+}
+
+function setMic(active){
+  micDot.classList.toggle('live', active);
+  micText.textContent = active ? 'Mikrofon aktiv' : 'Mikrofon aus';
+}
+
+function showError(msg){
+  errorBox.style.display = 'block';
+  errorBox.textContent = '⚠️ ' + msg;
+}
+function clearError(){
+  errorBox.style.display = 'none';
+  errorBox.textContent = '';
+}
+
+function startTimer(){
+  secondsElapsed = 0;
+  timerEl.textContent = '00:00';
+  timerInterval = setInterval(() => {
+    secondsElapsed++;
+    const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+    const s = String(secondsElapsed % 60).padStart(2, '0');
+    timerEl.textContent = `${m}:${s}`;
+  }, 1000);
+}
+function stopTimer(){
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
+
+function addBubble(who, text){
+  if(!text || !text.trim()) return;
+  transcriptEmpty.style.display = 'none';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + who;
+  const whoLabel = document.createElement('div');
+  whoLabel.className = 'who';
+  whoLabel.textContent = who === 'student' ? 'Du' : 'Gemini';
+  const body = document.createElement('div');
+  body.textContent = text;
+  bubble.appendChild(whoLabel);
+  bubble.appendChild(body);
+  transcriptScroll.appendChild(bubble);
+  transcriptScroll.scrollTop = transcriptScroll.scrollHeight;
+
+  const p = document.createElement('p');
+  p.textContent = text;
+  if(who === 'student'){
+    studentCol.appendChild(p);
+    studentCol.scrollTop = studentCol.scrollHeight;
+  } else {
+    geminiCol.appendChild(p);
+    geminiCol.scrollTop = geminiCol.scrollHeight;
+  }
+}
+
+function flushLines(){
+  if(currentUserLine.trim()){
+    addBubble('student', currentUserLine.trim());
+    currentUserLine = "";
+  }
+  if(currentGeminiLine.trim()){
+    addBubble('gemini', currentGeminiLine.trim());
+    currentGeminiLine = "";
+  }
+}
+
+/* ============================================================
+   AUDIO: EINGABE (Mikrofon -> 16kHz PCM16 -> Gemini)
+   ============================================================ */
+async function startMic(){
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      channelCount: 1,
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+  });
+
+  inputAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  sourceNode = inputAudioCtx.createMediaStreamSource(micStream);
+
+  const bufferSize = 4096;
+  processorNode = inputAudioCtx.createScriptProcessor(bufferSize, 1, 1);
+  const nativeRate = inputAudioCtx.sampleRate;
+
+  processorNode.onaudioprocess = (e) => {
+    const input = e.inputBuffer.getChannelData(0);
+
+    // Mikrofon-Pegel für den Indikator
+    let sum = 0;
+    for(let i=0;i<input.length;i++) sum += input[i]*input[i];
+    const rms = Math.sqrt(sum / input.length);
+    const scale = Math.min(1 + rms * 12, 2.2);
+    micDot.style.transform = `scale(${scale})`;
+
+    const downsampled = downsampleTo16k(input, nativeRate);
+    const pcm16 = floatTo16BitPCM(downsampled);
+    const base64Data = arrayBufferToBase64(pcm16.buffer);
+
+    if(ws && ws.readyState === WebSocket.OPEN){
+      ws.send(JSON.stringify({
+        realtimeInput: {
+          audio: {
+            data: base64Data,
+            mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`
+          }
+        }
+      }));
+    }
+  };
+
+  sourceNode.connect(processorNode);
+  processorNode.connect(inputAudioCtx.destination);
+  setMic(true);
+}
+
+function stopMic(){
+  if(processorNode){ processorNode.disconnect(); processorNode.onaudioprocess = null; processorNode = null; }
+  if(sourceNode){ sourceNode.disconnect(); sourceNode = null; }
+  if(inputAudioCtx){ inputAudioCtx.close().catch(()=>{}); inputAudioCtx = null; }
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  micDot.style.transform = 'scale(1)';
+  setMic(false);
+}
+
+function downsampleTo16k(float32Arr, nativeRate){
+  if(nativeRate === INPUT_SAMPLE_RATE) return float32Arr;
+  const ratio = nativeRate / INPUT_SAMPLE_RATE;
+  const newLength = Math.round(float32Arr.length / ratio);
+  const result = new Float32Array(newLength);
+  for(let i=0;i<newLength;i++){
+    const srcIndex = i * ratio;
+    const i0 = Math.floor(srcIndex);
+    const i1 = Math.min(i0 + 1, float32Arr.length - 1);
+    const frac = srcIndex - i0;
+    result[i] = float32Arr[i0] * (1 - frac) + float32Arr[i1] * frac;
+  }
+  return result;
+}
+
+function floatTo16BitPCM(float32Arr){
+  const out = new Int16Array(float32Arr.length);
+  for(let i=0;i<float32Arr.length;i++){
+    let s = Math.max(-1, Math.min(1, float32Arr[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+function arrayBufferToBase64(buffer){
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  }
+  return btoa(binary);
+}
+
+/* ============================================================
+   AUDIO: AUSGABE (Gemini -> 24kHz PCM16 -> Lautsprecher)
+   ============================================================ */
+function ensureOutputContext(){
+  if(!outputAudioCtx){
+    outputAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: OUTPUT_SAMPLE_RATE });
+    playHeadTime = outputAudioCtx.currentTime;
+  }
+}
+
+function playAudioChunk(base64Data){
+  ensureOutputContext();
+
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+
+  const float32 = new Float32Array(int16.length);
+  for(let i=0;i<int16.length;i++) float32[i] = int16[i] / 0x8000;
+
+  const buffer = outputAudioCtx.createBuffer(1, float32.length, OUTPUT_SAMPLE_RATE);
+  buffer.copyToChannel(float32, 0);
+
+  const source = outputAudioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(outputAudioCtx.destination);
+
+  const now = outputAudioCtx.currentTime;
+  if(playHeadTime < now) playHeadTime = now;
+
+  source.start(playHeadTime);
+  playHeadTime += buffer.duration;
+}
+
+function stopAllPlayback(){
+  if(outputAudioCtx){
+    outputAudioCtx.close().catch(()=>{});
+    outputAudioCtx = null;
+  }
+  playHeadTime = 0;
+}
+
+/* ============================================================
+   WEBSOCKET
+   ============================================================ */
+function connect(){
+  clearError();
+
+  if(!GEMINI_API_KEY || GEMINI_API_KEY === "HIER_API_KEY_EINSETZEN"){
+    showError('Bitte trage zuerst deinen Gemini API-Key in GEMINI_API_KEY im Code ein.');
+    return;
+  }
+
+  setStatus('yellow', 'Verbindung wird hergestellt…');
+  startBtn.disabled = true;
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    const setupMessage = {
+      setup: {
+        model: `models/${MODEL_NAME}`,
+        generationConfig: {
+          responseModalities: ["AUDIO"]
+        },
+        systemInstruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }]
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {}
+      }
+    };
+    ws.send(JSON.stringify(setupMessage));
+  };
+
+  ws.onmessage = async (event) => {
+    let data = event.data;
+    if(data instanceof Blob){
+      data = await data.text();
+    }
+    let response;
+    try{
+      response = JSON.parse(data);
+    }catch(err){
+      return;
+    }
+
+    // Setup abgeschlossen -> Mikrofon starten + KI zum Gesprächsstart auffordern
+    if(response.setupComplete){
+      setStatus('green', 'Verbunden');
+      stopBtn.disabled = false;
+      startTimer();
+      try{
+        await startMic();
+      }catch(err){
+        showError('Mikrofonzugriff fehlgeschlagen: ' + err.message);
+        endSession();
+        return;
+      }
+      // versteckter Trigger, damit Gemini das Gespräch aktiv eröffnet
+      ws.send(JSON.stringify({
+        clientContent: {
+          turns: [{ role: "user", parts: [{ text: "(Beginne jetzt das Gespräch mit der festgelegten Begrüßung.)" }] }],
+          turnComplete: true
+        }
+      }));
+      return;
+    }
+
+    if(response.serverContent){
+      const sc = response.serverContent;
+
+      if(sc.interrupted){
+        stopAllPlayback();
+      }
+
+      if(sc.modelTurn && sc.modelTurn.parts){
+        for(const part of sc.modelTurn.parts){
+          if(part.inlineData && part.inlineData.data){
+            playAudioChunk(part.inlineData.data);
+          }
+        }
+      }
+
+      if(sc.inputTranscription && sc.inputTranscription.text){
+        currentUserLine += sc.inputTranscription.text;
+      }
+      if(sc.outputTranscription && sc.outputTranscription.text){
+        currentGeminiLine += sc.outputTranscription.text;
+      }
+
+      if(sc.turnComplete){
+        flushLines();
+      }
+    }
+
+    if(response.error){
+      showError('Serverfehler: ' + JSON.stringify(response.error));
+    }
+  };
+
+  ws.onerror = () => {
+    showError('WebSocket-Fehler. Bitte API-Key und Internetverbindung prüfen.');
+    setStatus('red', 'Fehler');
+  };
+
+  ws.onclose = (event) => {
+    setStatus('gray', 'Getrennt');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    if(event.code !== 1000 && event.code !== 1005){
+      showError(`Verbindung geschlossen (Code ${event.code}). Prüfe API-Key, Modellname oder Kontingent.`);
+    }
+  };
+}
+
+function endSession(){
+  flushLines();
+  stopMic();
+  stopAllPlayback();
+  stopTimer();
+  if(ws){
+    try{ ws.close(1000, 'user_ended'); }catch(e){}
+    ws = null;
+  }
+  setStatus('gray', 'Getrennt');
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+startBtn.addEventListener('click', connect);
+stopBtn.addEventListener('click', endSession);
+</script>
+</body>
+</html>
